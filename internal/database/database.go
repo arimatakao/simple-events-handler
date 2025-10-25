@@ -22,6 +22,9 @@ type Service interface {
 	// Close terminates the database connection.
 	// It returns an error if the connection cannot be closed.
 	Close() error
+
+	// InsertEvent inserts a new event and returns the created event id.
+	InsertEvent(ctx context.Context, userID int64, action string, metadata map[string]string) (int64, error)
 }
 
 type service struct {
@@ -118,4 +121,25 @@ func (s *service) Health() map[string]string {
 func (s *service) Close() error {
 	log.Printf("Disconnected from database: %s", database)
 	return s.db.Close()
+}
+
+// InsertEvent inserts a new event into the events table.
+// metadata is stored in the metadata_page column as plain text or JSON string depending on input.
+func (s *service) InsertEvent(ctx context.Context, userID int64, action string, metadata map[string]string) (int64, error) {
+	// For now we'll store metadata.page into metadata_page column if present.
+	var metadataPage sql.NullString
+	if metadata != nil {
+		if page, ok := metadata["page"]; ok {
+			metadataPage = sql.NullString{String: page, Valid: true}
+		}
+	}
+
+	query := `INSERT INTO events(user_id, action, metadata_page) VALUES ($1, $2, $3) RETURNING id`
+	var id int64
+	// Use QueryRowContext to return the inserted id
+	err := s.db.QueryRowContext(ctx, query, userID, action, metadataPage).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
 }

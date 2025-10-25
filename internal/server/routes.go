@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -8,6 +9,22 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
+
+type AddEventRequest struct {
+	UserID   int64             `json:"user_id" binding:"required"`
+	Action   string            `json:"action" binding:"required"`
+	Metadata map[string]string `json:"metadata"`
+}
+
+func (a AddEventRequest) Validate() error {
+	if a.UserID <= 0 {
+		return fmt.Errorf("user_id must be a positive integer")
+	}
+	if a.Action == "" {
+		return fmt.Errorf("action is required")
+	}
+	return nil
+}
 
 func (s *Server) RegisterRoutes(basePath string) http.Handler {
 	gin.SetMode(gin.ReleaseMode)
@@ -51,7 +68,29 @@ func (s *Server) LogMiddleware() gin.HandlerFunc {
 }
 
 func (s *Server) AddEventHandler(c *gin.Context) {
-	c.Status(http.StatusOK)
+	var req AddEventRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request", "details": err.Error()})
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "validation failed", "details": err.Error()})
+		return
+	}
+
+	// Insert into DB
+	ctx := c.Request.Context()
+	id, err := s.db.InsertEvent(ctx, req.UserID, req.Action, req.Metadata)
+	if err != nil {
+		s.l.Error("failed to insert event", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert event"})
+		return
+	}
+
+	s.l.Info("new event added", "event_id", id)
+	c.Status(http.StatusCreated)
 }
 
 func (s *Server) GetEventsHandler(c *gin.Context) {
