@@ -157,14 +157,13 @@ func (s *Server) AddEventHandler(c *gin.Context) {
 
 	// Insert into DB
 	ctx := c.Request.Context()
-	id, err := s.db.InsertEvent(ctx, req.UserID, req.Action, req.Metadata)
+	_, err := s.db.InsertEvent(ctx, req.UserID, req.Action, req.Metadata)
 	if err != nil {
 		s.l.Error("failed to insert event", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to insert event"})
 		return
 	}
 
-	s.l.Info("new event added", "event_id", id)
 	c.Status(http.StatusCreated)
 }
 
