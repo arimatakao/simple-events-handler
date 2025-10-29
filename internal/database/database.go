@@ -22,6 +22,18 @@ type Event struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+type Eventter interface {
+	// InsertEvent inserts a new event and returns the created event id.
+	InsertEvent(ctx context.Context, userID int64, action string, metadata map[string]string) (int64, error)
+	// GetEvents returns events filtered by optional userID, start and end timestamps.
+	GetEvents(ctx context.Context, userID *int64, start *time.Time, end *time.Time) ([]Event, error)
+}
+
+type Aggregatter interface {
+	// AggregateEvents aggregates events into user_event_counts for the provided period length (seconds).
+	AggregateEvents(seconds int) error
+}
+
 // Service represents a service that interacts with a database.
 type Service interface {
 	// Health returns a map of health status information.
@@ -32,11 +44,9 @@ type Service interface {
 	// It returns an error if the connection cannot be closed.
 	Close() error
 
-	// InsertEvent inserts a new event and returns the created event id.
-	InsertEvent(ctx context.Context, userID int64, action string, metadata map[string]string) (int64, error)
+	Eventter
 
-	// GetEvents returns events filtered by optional userID, start and end timestamps.
-	GetEvents(ctx context.Context, userID *int64, start *time.Time, end *time.Time) ([]Event, error)
+	Aggregatter
 }
 
 type service struct {
@@ -210,4 +220,25 @@ ORDER BY created_at DESC;
 		return nil, err
 	}
 	return events, nil
+}
+
+// AggregateEvents creates/upserts aggregated counts into user_event_counts for the time window defined
+// by nowUTC - seconds .. nowUTC. It uses an INSERT ... ON CONFLICT to upsert per (user_id, period_start).
+func (s *service) AggregateEvents(seconds int) error {
+	periodEnd := time.Now().UTC()
+	periodStart := periodEnd.Add(-time.Duration(seconds) * time.Second)
+
+	_, err := s.db.Exec(`
+	INSERT INTO user_event_counts (user_id, period_start, period_end, event_count)
+	SELECT user_id, $1, $2, COUNT(*) FROM events
+	WHERE created_at >= $1 AND created_at < $2
+	GROUP BY user_id
+	ON CONFLICT (user_id, period_start)
+	DO UPDATE SET event_count = EXCLUDED.event_count;
+	`, periodStart, periodEnd)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+
+	return err
 }

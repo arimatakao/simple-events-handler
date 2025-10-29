@@ -43,7 +43,5 @@ func NewServer(logger *slog.Logger) *http.Server {
 		WriteTimeout: time.Duration(writeTimeout) * time.Second,
 	}
 
-	logger.Info("server created", "address", server.Addr)
-
 	return server
 }
