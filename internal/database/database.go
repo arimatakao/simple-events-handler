@@ -13,6 +13,15 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 )
 
+// Event represents a row from the events table.
+type Event struct {
+	ID           int64     `json:"id"`
+	UserID       int64     `json:"user_id"`
+	Action       string    `json:"action"`
+	MetadataPage *string   `json:"metadata_page,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 // Service represents a service that interacts with a database.
 type Service interface {
 	// Health returns a map of health status information.
@@ -25,6 +34,9 @@ type Service interface {
 
 	// InsertEvent inserts a new event and returns the created event id.
 	InsertEvent(ctx context.Context, userID int64, action string, metadata map[string]string) (int64, error)
+
+	// GetEvents returns events filtered by optional userID, start and end timestamps.
+	GetEvents(ctx context.Context, userID *int64, start *time.Time, end *time.Time) ([]Event, error)
 }
 
 type service struct {
@@ -142,4 +154,60 @@ func (s *service) InsertEvent(ctx context.Context, userID int64, action string, 
 		return 0, err
 	}
 	return id, nil
+}
+
+// GetEvents queries events table using optional filters.
+// Uses the provided SQL:
+// SELECT id, user_id, action, metadata_page, created_at
+// FROM events
+// WHERE ($1::bigint IS NULL OR user_id = $1)
+// AND ($2::timestamptz IS NULL OR created_at >= $2)
+// AND ($3::timestamptz IS NULL OR created_at <= $3)
+// ORDER BY created_at DESC;
+func (s *service) GetEvents(ctx context.Context, userID *int64, start *time.Time, end *time.Time) ([]Event, error) {
+	query := `
+SELECT id, user_id, action, metadata_page, created_at
+FROM events
+WHERE ($1::bigint IS NULL OR user_id = $1)
+AND ($2::timestamptz IS NULL OR created_at >= $2)
+AND ($3::timestamptz IS NULL OR created_at <= $3)
+ORDER BY created_at DESC;
+`
+	var uid interface{} = nil
+	if userID != nil {
+		uid = *userID
+	}
+	var startVal interface{} = nil
+	if start != nil {
+		startVal = *start
+	}
+	var endVal interface{} = nil
+	if end != nil {
+		endVal = *end
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, uid, startVal, endVal)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	events := make([]Event, 0)
+	for rows.Next() {
+		var e Event
+		var metadata sql.NullString
+		if err := rows.Scan(&e.ID, &e.UserID, &e.Action, &metadata, &e.CreatedAt); err != nil {
+			return nil, err
+		}
+		if metadata.Valid {
+			e.MetadataPage = &metadata.String
+		} else {
+			e.MetadataPage = nil
+		}
+		events = append(events, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return events, nil
 }

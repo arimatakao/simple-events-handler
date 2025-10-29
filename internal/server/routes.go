@@ -3,7 +3,9 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -24,6 +26,79 @@ func (a AddEventRequest) Validate() error {
 		return fmt.Errorf("action is required")
 	}
 	return nil
+}
+
+type GetEventsRequest struct {
+	UserID *int64
+	From   string
+	To     string
+}
+
+// parseTimeFlexible tries to unescape the input (handles values that were URL-encoded
+// multiple times like "%2520") and parse using several common time layouts.
+func (r GetEventsRequest) parseTimeFlexible(v string) (*time.Time, error) {
+	if v == "" {
+		return nil, fmt.Errorf("empty time string")
+	}
+
+	// Unescape up to a few times to handle double-encoding like %2520 -> %20 -> space
+	uv := v
+	for i := 0; i < 3; i++ {
+		u, err := url.QueryUnescape(uv)
+		if err != nil {
+			break
+		}
+		if u == uv {
+			break
+		}
+		uv = u
+	}
+	uv = strings.TrimSpace(uv)
+	if uv == "" {
+		return nil, fmt.Errorf("empty time after unescape")
+	}
+
+	layouts := []string{
+		time.RFC3339,
+		time.RFC3339Nano,
+		"2006-01-02 15:04:05",
+		"2006-01-02T15:04:05",
+		"2006-01-02",
+	}
+
+	for _, l := range layouts {
+		if t, err := time.Parse(l, uv); err == nil {
+			return &t, nil
+		}
+	}
+	return nil, fmt.Errorf("unrecognized time format: %q", v)
+}
+
+func (r *GetEventsRequest) Validate() (*time.Time, *time.Time, error) {
+	// user id (if present) must be positive
+	if r.UserID != nil && *r.UserID <= 0 {
+		return nil, nil, fmt.Errorf("user_id must be a positive integer")
+	}
+	if r.From == "" {
+		return nil, nil, fmt.Errorf("from paramater")
+	}
+
+	start, err := r.parseTimeFlexible(r.From)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid from parameter: %w", err)
+	}
+
+	end, err := r.parseTimeFlexible(r.To)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid to parameter: %w", err)
+	}
+
+	// from must not be after to
+	if start.After(*end) {
+		return nil, nil, fmt.Errorf("from must be before or equal to to")
+	}
+
+	return start, end, nil
 }
 
 func (s *Server) RegisterRoutes(basePath string) http.Handler {
@@ -94,5 +169,37 @@ func (s *Server) AddEventHandler(c *gin.Context) {
 }
 
 func (s *Server) GetEventsHandler(c *gin.Context) {
-	c.Status(http.StatusOK)
+	// Build request from query params
+	var req GetEventsRequest
+
+	// optional user_id
+	if v := c.Query("user_id"); v != "" {
+		uid, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id"})
+			return
+		}
+		req.UserID = &uid
+	}
+
+	req.From = c.Query("from")
+	req.To = c.Query("to")
+
+	startPtr, endPtr, err := req.Validate()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid time format", "details": err.Error()})
+		return
+	}
+
+	// Query DB
+	ctx := c.Request.Context()
+	events, err := s.db.GetEvents(ctx, req.UserID, startPtr, endPtr)
+	if err != nil {
+		s.l.Error("failed to query events", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch events"})
+		return
+	}
+
+	// Return JSON array of events
+	c.JSON(http.StatusOK, events)
 }
