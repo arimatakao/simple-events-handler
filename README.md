@@ -8,6 +8,11 @@ Key characteristics:
 - Structured JSON logging used throughout the server and background tasks.
 - Graceful shutdown support to let in-flight requests finish and to stop background jobs cleanly.
 
+Also you can use frontend: [https://github.com/arimatakao/simple-events-handler-client](https://github.com/arimatakao/simple-events-handler-client)
+
+Original repository: [https://github.com/arimatakao/events-handler](https://github.com/arimatakao/events-handler)
+However, the code was written poorly, so I cleaned it up.
+
 ## Clone this repository
 
 With submodules:
@@ -24,6 +29,9 @@ git clone https://github.com/arimatakao/simple-events-handler.git
 
 
 ## Examples usage
+
+You can use the Postman collection located at [./other/postman_collection.json](./other/postman_collection.json)
+
 
 Below are simple examples showing how to send events to the API and how to query them. These examples assume the server is running locally on port 8080 and the BASE_PATH is /api.
 
