@@ -11,7 +11,6 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type AddEventRequest struct {
@@ -128,14 +127,38 @@ func (s *Server) RegisterRoutes(basePath string) http.Handler {
 	r := gin.New()
 	r.Use(gin.Recovery())
 
-	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"}, // Frontend URL
-		AllowMethods:     []string{"GET", "POST"},
-		AllowHeaders:     []string{"Accept", "Authorization", "Content-Type"},
-		AllowCredentials: false, // Enable cookies/auth
-	}))
+	// Ensure defaults if something is missing
+	if len(s.corsAllowOrigins) == 0 {
+		s.corsAllowOrigins = []string{"http://localhost:3000"}
+	}
+	if len(s.corsAllowMethods) == 0 {
+		s.corsAllowMethods = []string{"GET", "POST"}
+	}
+	if len(s.corsAllowHeaders) == 0 {
+		s.corsAllowHeaders = []string{"Accept", "Authorization", "Content-Type"}
+	}
 
-	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	cfg := cors.Config{
+		AllowMethods:     s.corsAllowMethods,
+		AllowHeaders:     s.corsAllowHeaders,
+		AllowCredentials: s.corsAllowCredentials,
+	}
+
+	// If origins contains "*" enable AllowAllOrigins, otherwise set AllowOrigins
+	isAllOriginAllowed := false
+	for _, o := range s.corsAllowOrigins {
+		if o == "*" {
+			isAllOriginAllowed = true
+			break
+		}
+	}
+	if isAllOriginAllowed {
+		cfg.AllowAllOrigins = true
+	} else {
+		cfg.AllowOrigins = s.corsAllowOrigins
+	}
+
+	r.Use(cors.New(cfg))
 
 	base := r.Group(basePath)
 	base.Use(s.LogMetricsMiddleware())
