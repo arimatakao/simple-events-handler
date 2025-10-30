@@ -8,6 +8,20 @@ Key characteristics:
 - Structured JSON logging used throughout the server and background tasks.
 - Graceful shutdown support to let in-flight requests finish and to stop background jobs cleanly.
 
+## Clone this repository
+
+With submodules:
+
+```sh
+git clone --recurse-submodules https://github.com/arimatakao/simple-events-handler.git
+```
+
+Without submodules:
+
+```sh
+git clone https://github.com/arimatakao/simple-events-handler.git
+```
+
 
 ## Examples usage
 
@@ -193,6 +207,30 @@ Run the test suite:
 ```sh
 make test
 ```
+
+## Quick start (local)
+
+Prerequisites:
+- Go 1.18+ (see `go.mod` for exact version used by the project)
+- Docker & docker-compose (optional, used for starting a local Postgres DB)
+
+Start a local Postgres instance using the provided docker-compose file (recommended for development):
+
+```sh
+# start DB container in the background (uses docker-compose.yml)
+make docker-run
+
+# run the server locally
+make run
+```
+
+Or run directly with `go run` (ensure env vars are set or .env is present):
+
+```sh
+go run ./cmd/api
+```
+
+The server listens on the port configured by the `PORT` environment variable (default 8080). Use the examples above to POST events or query them.
 
 Clean up binary from the last build:
 ```sh
