@@ -1,0 +1,225 @@
+{
+  "info": {
+    "name": "Events handler",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create event 42",
+      "event": [],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "disabled": false,
+            "type": "default"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "description": "",
+        "url": {
+          "raw": "http://{{address}}{{base_path}}/events",
+          "protocol": "http",
+          "host": [
+            "{{address}}{{base_path}}"
+          ],
+          "path": [
+            "events"
+          ],
+          "query": [],
+          "variable": []
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 42,\n  \"action\": \"page_view\",\n  \"metadata\": {\n    \"page\": \"/home\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Create event 43",
+      "event": [],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "disabled": false,
+            "type": "default"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "description": "",
+        "url": {
+          "raw": "http://{{address}}{{base_path}}/events",
+          "protocol": "http",
+          "host": [
+            "{{address}}{{base_path}}"
+          ],
+          "path": [
+            "events"
+          ],
+          "query": [],
+          "variable": []
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"user_id\": 43,\n  \"action\": \"page_view\",\n  \"metadata\": {\n    \"page\": \"/home\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Get events 42",
+      "event": [],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "description": "",
+        "url": {
+          "raw": "http://{{address}}{{base_path}}/events?user_id=42&from=2025-10-30 10:07:02&to=2025-10-30 13:07:02",
+          "protocol": "http",
+          "host": [
+            "{{address}}{{base_path}}"
+          ],
+          "path": [
+            "events"
+          ],
+          "query": [
+            {
+              "key": "user_id",
+              "value": "42"
+            },
+            {
+              "key": "from",
+              "value": "2025-10-30 10:07:02"
+            },
+            {
+              "key": "to",
+              "value": "2025-10-30 13:07:02"
+            }
+          ],
+          "variable": []
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Get events 43",
+      "event": [],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "description": "",
+        "url": {
+          "raw": "http://{{address}}{{base_path}}/events?user_id=43&from=2025-10-29 19:07:02&to=2025-10-29 22:07:02",
+          "protocol": "http",
+          "host": [
+            "{{address}}{{base_path}}"
+          ],
+          "path": [
+            "events"
+          ],
+          "query": [
+            {
+              "key": "user_id",
+              "value": "43"
+            },
+            {
+              "key": "from",
+              "value": "2025-10-29 19:07:02"
+            },
+            {
+              "key": "to",
+              "value": "2025-10-29 22:07:02"
+            }
+          ],
+          "variable": []
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Metrics",
+      "event": [],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "description": "",
+        "url": {
+          "raw": "http://{{address}}/metrics",
+          "protocol": "http",
+          "host": [
+            "{{address}}"
+          ],
+          "path": [
+            "metrics"
+          ],
+          "query": [],
+          "variable": []
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "address",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "base_path",
+      "value": "",
+      "type": "default"
+    }
+  ]
+}
