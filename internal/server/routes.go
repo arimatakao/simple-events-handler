@@ -10,6 +10,8 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type AddEventRequest struct {
@@ -102,6 +104,26 @@ func (r *GetEventsRequest) Validate() (*time.Time, *time.Time, error) {
 }
 
 func (s *Server) RegisterRoutes(basePath string) http.Handler {
+	httpRequests := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "http_requests_total",
+			Help: "Total number of HTTP requests",
+		},
+		[]string{"path", "method", "status"},
+	)
+	httpDuration := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "http_request_duration_seconds",
+			Help:    "Duration of HTTP requests in seconds",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"path", "method"},
+	)
+
+	prometheus.MustRegister(httpRequests, httpDuration)
+	s.httpRequestCounter = httpRequests
+	s.httpRequestDuration = httpDuration
+
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery())
@@ -113,15 +135,17 @@ func (s *Server) RegisterRoutes(basePath string) http.Handler {
 		AllowCredentials: false, // Enable cookies/auth
 	}))
 
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
 	base := r.Group(basePath)
-	base.Use(s.LogMiddleware())
+	base.Use(s.LogMetricsMiddleware())
 	base.POST("/events", s.AddEventHandler)
 	base.GET("/events", s.GetEventsHandler)
 
 	return r
 }
 
-func (s *Server) LogMiddleware() gin.HandlerFunc {
+func (s *Server) LogMetricsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		path := c.FullPath()
@@ -139,6 +163,9 @@ func (s *Server) LogMiddleware() gin.HandlerFunc {
 			"duration_sec", duration,
 			"client_ip", c.ClientIP(),
 		)
+
+		s.httpRequestCounter.WithLabelValues(path, method, status).Inc()
+		s.httpRequestDuration.WithLabelValues(path, method).Observe(duration)
 	}
 }
 

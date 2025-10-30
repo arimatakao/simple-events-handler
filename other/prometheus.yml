@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: "simple-events-handler"
+    static_configs:
+      - targets: ["simple-events-handler:8080"]

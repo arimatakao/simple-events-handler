@@ -9,13 +9,16 @@ import (
 	"time"
 
 	_ "github.com/joho/godotenv/autoload"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/arimatakao/simple-events-handler/internal/database"
 )
 
 type Server struct {
-	port int
-	l    *slog.Logger
+	port                int
+	l                   *slog.Logger
+	httpRequestCounter  *prometheus.CounterVec
+	httpRequestDuration *prometheus.HistogramVec
 
 	db database.Service
 }

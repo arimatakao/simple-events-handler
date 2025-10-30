@@ -1,0 +1,68 @@
+services:
+
+  simple-events-handler:
+    container_name: simple_events_handler
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - pgadmin
+
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      TZ: ${TZ}
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - ./other/init_tables.sql:/docker-entrypoint-initdb.d/init.sql
+    # volumes:
+    #   - psql_volume_bp:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4:9
+    container_name: pgadmin4
+    restart: always
+    ports:
+      - "8081:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: user@domain.com
+      PGADMIN_DEFAULT_PASSWORD: password
+    depends_on:
+      - db
+
+  prometheus:
+    image: prom/prometheus:v3.6.0
+    container_name: prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./other/prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - simple-events-handler
+
+  grafana:
+    image: grafana/grafana:12.3.0-18392635519
+    container_name: grafana
+    restart: always
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    # volumes:
+    #   - grafana_data:/var/lib/grafana
