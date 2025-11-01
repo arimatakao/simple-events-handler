@@ -27,6 +27,94 @@ Without submodules:
 git clone https://github.com/arimatakao/simple-events-handler.git
 ```
 
+## Environment variables
+
+The application uses environment variables to configure the HTTP server, aggregation scheduler, time zone, and database connection. For development you can copy .env.example to .env and adjust values.
+
+- PORT (int, default: 8080)
+  - TCP port the HTTP server will listen on.
+
+- BASE_PATH (string, default: /api)
+  - Base route prefix for all HTTP endpoints (e.g. /api). If empty, routes are served from root.
+
+- AGGREGATION_INTERVAL_SECONDS (int, default: 30)
+  - How often (in seconds) the background aggregator should run. Must be a positive integer. The aggregator will run approximately every N seconds.
+
+- IDLE_TIMEOUT_SECONDS (int, default: 60)
+  - HTTP server idle timeout in seconds (max time to keep idle connections open).
+
+- READ_TIMEOUT_SECONDS (int, default: 10)
+  - Maximum duration in seconds for reading the entire request, including the body.
+
+- WRITE_TIMEOUT_SECONDS (int, default: 30)
+  - Maximum duration in seconds before timing out writes of the response.
+
+- TZ (string, example: Europe/Kiev)
+  - Time zone used by containers / scripts that respect TZ. Not strictly required by the app, but useful in Docker setups and examples.
+
+Database connection variables (used by the app and docker-compose):
+
+- DB_HOST (string, default: localhost)
+  - Hostname or IP of the Postgres server.
+
+- DB_PORT (int, default: 5432)
+  - Port on which Postgres is listening. In docker-compose this maps host port to container 5432.
+
+- DB_DATABASE (string, example: events)
+  - Name of the Postgres database to connect to.
+
+- DB_USERNAME (string)
+  - Database username.
+
+- DB_PASSWORD (string)
+  - Database password.
+
+- DB_SCHEMA (string, default: public)
+  - Postgres search_path/schema to use (the code appends this to the connection string).
+
+Notes and behavior:
+- The application reads values with os.Getenv and falls back to simple defaults where appropriate. Numeric values are parsed with strconv.Atoi; invalid numeric values will typically fall back to the default or log a warning (see source).
+- For local development you can populate a .env file from .env.example. When running in Docker, docker-compose reads environment variables or uses the values from an .env file in the compose directory.
+- Keep credentials (DB_USERNAME, DB_PASSWORD) out of version control; use environment-specific secrets or a vault in production.
+
+## Docker compose services
+
+The repository provides a `docker-compose.yml` that starts several services useful for development and local testing. Running `docker compose up` (or `docker-compose up`) from the project root will create and start the following containers:
+
+- `simple-events-handler` — the main Go application, built from the project's `Dockerfile`; it listens on the port configured by the `PORT` env var (mapped to host `8080:8080` in the compose file).
+- `react-client` — a static React frontend (from `other/react-client`) served by an nginx container; the compose file builds this image and maps it to host port `3000`.
+- `db` (`postgres_db`) — a Postgres 15 database used by the application. The compose file initializes the database using `other/init_tables.sql` and exposes the container port so you can connect using the host port defined in your `.env` (default `5432`).
+- `pgadmin` (`pgadmin4`) — pgAdmin web UI (default mapped to host port `8081`) for managing the Postgres instance.
+- `prometheus` — Prometheus server (mapped to host port `9090`) using the bundled `other/prometheus.yml` for scraping metrics.
+- `grafana` — Grafana server (mapped to host port `3001`) for dashboards and visualizing Prometheus metrics.
+
+Notes:
+
+- The compose file expects environment variables (database credentials, ports, time zone, etc.) — see `.env.example` for recommended values. Copy it to `.env` and adjust as needed for `docker compose up` to pick them up.
+- `simple-events-handler` depends on `db` and `pgadmin` in the compose file; `react-client` depends on `simple-events-handler` so the frontend can call the API by service name when running together in the compose network.
+- To start only the database for integration testing you can run: `docker compose up db`.
+
+### Web UI credentials
+
+The compose file includes two web UIs (pgAdmin and Grafana). Default credentials exposed in the compose file are:
+
+- pgAdmin (web UI)
+  - URL (host): http://localhost:8081
+  - Default login: user@domain.com
+  - Default password: password
+
+- Grafana (web UI)
+  - URL (host): http://localhost:3001
+  - Default login: admin
+  - Default password: admin
+
+Postgres credentials (used by the `db` container and by the application) come from environment variables defined in your `.env` file (see `.env.example`). By default in `.env.example` the values are:
+
+- DB_DATABASE=events
+- DB_USERNAME=username
+- DB_PASSWORD=password
+
+Make sure to update `.env` with secure values in any environment that is not local development.
 
 ## Examples usage
 
@@ -124,61 +212,6 @@ Content-Type: application/json
 
 {"error":"failed to fetch events"}
 ```
-
-
-## Getting Started Developing
-
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
-
-## Environment variables
-
-The application uses environment variables to configure the HTTP server, aggregation scheduler, time zone, and database connection. For development you can copy .env.example to .env and adjust values.
-
-- PORT (int, default: 8080)
-  - TCP port the HTTP server will listen on.
-
-- BASE_PATH (string, default: /api)
-  - Base route prefix for all HTTP endpoints (e.g. /api). If empty, routes are served from root.
-
-- AGGREGATION_INTERVAL_SECONDS (int, default: 30)
-  - How often (in seconds) the background aggregator should run. Must be a positive integer. The aggregator will run approximately every N seconds.
-
-- IDLE_TIMEOUT_SECONDS (int, default: 60)
-  - HTTP server idle timeout in seconds (max time to keep idle connections open).
-
-- READ_TIMEOUT_SECONDS (int, default: 10)
-  - Maximum duration in seconds for reading the entire request, including the body.
-
-- WRITE_TIMEOUT_SECONDS (int, default: 30)
-  - Maximum duration in seconds before timing out writes of the response.
-
-- TZ (string, example: Europe/Kiev)
-  - Time zone used by containers / scripts that respect TZ. Not strictly required by the app, but useful in Docker setups and examples.
-
-Database connection variables (used by the app and docker-compose):
-
-- DB_HOST (string, default: localhost)
-  - Hostname or IP of the Postgres server.
-
-- DB_PORT (int, default: 5432)
-  - Port on which Postgres is listening. In docker-compose this maps host port to container 5432.
-
-- DB_DATABASE (string, example: events)
-  - Name of the Postgres database to connect to.
-
-- DB_USERNAME (string)
-  - Database username.
-
-- DB_PASSWORD (string)
-  - Database password.
-
-- DB_SCHEMA (string, default: public)
-  - Postgres search_path/schema to use (the code appends this to the connection string).
-
-Notes and behavior:
-- The application reads values with os.Getenv and falls back to simple defaults where appropriate. Numeric values are parsed with strconv.Atoi; invalid numeric values will typically fall back to the default or log a warning (see source).
-- For local development you can populate a .env file from .env.example. When running in Docker, docker-compose reads environment variables or uses the values from an .env file in the compose directory.
-- Keep credentials (DB_USERNAME, DB_PASSWORD) out of version control; use environment-specific secrets or a vault in production.
 
 ## MakeFile
 
